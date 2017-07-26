@@ -1,0 +1,10 @@
+[package]
+name = "kv_server"
+version = "0.1.0"
+authors = ["nharr"]
+
+[dependencies]
+ordered-float = "0.5.0"
+try_from = "0.2.0"
+thrift="0.0.4"
+clap="2.25.1"
