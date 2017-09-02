@@ -11,6 +11,9 @@ use std::default::Default;
 use thrift::server::TServer;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::RwLock;
+use std::result::Result;
+use std::ops::{DerefMut, Deref};
 use thrift::protocol::{TInputProtocolFactory, TOutputProtocolFactory};
 use thrift::protocol::{TCompactInputProtocolFactory, TCompactOutputProtocolFactory};
 use thrift::transport::{TFramedReadTransportFactory, TFramedWriteTransportFactory};
@@ -54,32 +57,65 @@ fn run() -> thrift::Result<()> {
     server.listen(&listen_address)
 }
 
+struct KVStore {
+    store: HashMap<String, String>,
+}
+
+impl KVStore{
+    fn new() -> KVStore {
+        KVStore{store: HashMap::new()}
+    }
+}
+
 struct KVServer {
-    log: HashMap<i32, KVObject>,
+    store: RwLock<KVStore>
 }
 
 impl Default for KVServer {
     fn default() -> KVServer {
-        KVServer { log: HashMap::new() }
+        KVServer { store: RwLock::new(KVStore::new()) }
     }
 }
 
 impl KVServerSyncHandler for KVServer {
-    fn handle_set_key(&self, kv: kv_server::KVObject) -> std::result::Result<bool, thrift::Error> {
-         unimplemented!();
+    fn handle_set_key(&self, kv: kv_server::KVObject) -> Result<bool, thrift::Error> {
+        let key = kv.key.unwrap();
+        let value = kv.value.unwrap();
+        println!("Storing value: {}  into key: {}", value, key);
+        let mut store = self.store.write().unwrap();
+        {
+            let w_store = store.deref_mut();
+            w_store.store.insert(key, value);
+        }
+        Ok(true)
     }
 
-    fn handle_get_val(&self, key: String)  -> std::result::Result<std::string::String, thrift::Error>{
-         unimplemented!();
+    fn handle_get_val(&self, key: String)  -> Result<std::string::String, thrift::Error>{
+         let store = self.store.read().unwrap();
+         let r_store = store.deref();
+         if r_store.store.contains_key(&key) {
+             let val = r_store.store.get(&key).unwrap().clone();
+             Ok(val)
+         } else {
+             Err(thrift::Error::from(KeyNotFound{ key: Some(key) }))
+         }
     }
 
 
-    fn handle_get_obj(&self, key: String)  -> std::result::Result<kv_server::KVObject, thrift::Error>{
-         unimplemented!();
+    fn handle_get_obj(&self, key: String)  -> Result<kv_server::KVObject, thrift::Error> {
+        let store = self.store.read().unwrap();
+        let r_store = store.deref();
+        if r_store.store.contains_key(&key) {
+            let val = r_store.store.get(&key).unwrap().clone();
+            let obj = kv_server::KVObject{key: Some(key), value: Some(val)};
+            Ok(obj)
+        } else {
+            Err(thrift::Error::from(KeyNotFound{ key: Some(key) }))
+        }
     }
 
 
-    fn handle_del_key(&self, key: String) -> std::result::Result<(), thrift::Error> {
+    fn handle_del_key(&self, key: String) -> Result<(), thrift::Error> {
          unimplemented!();
     }
 }
