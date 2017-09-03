@@ -481,8 +481,10 @@ pub struct TKVServerProcessFunctions;
 impl TKVServerProcessFunctions {
   pub fn process_set_key<H: KVServerSyncHandler>(handler: &H, incoming_sequence_number: i32, i_prot: &mut TInputProtocol, o_prot: &mut TOutputProtocol) -> thrift::Result<()> {
     let args = SetKeyArgs::read_from_in_protocol(i_prot)?;
+    println!("in process_set_key" );
     match handler.handle_set_key(args.kv) {
       Ok(handler_return) => {
+          println!("in ok arm" );
         let message_ident = TMessageIdentifier::new("set_key", TMessageType::Reply, incoming_sequence_number);
         o_prot.write_message_begin(&message_ident)?;
         let ret = SetKeyResult { result_value: Some(handler_return), service_exception: None };
@@ -493,6 +495,7 @@ impl TKVServerProcessFunctions {
       Err(e) => {
         match e {
           thrift::Error::User(usr_err) => {
+              println!("in error arm", );
             if usr_err.downcast_ref::<ServiceException>().is_some() {
               let err = usr_err.downcast::<ServiceException>().expect("downcast already checked");
               let ret_err = SetKeyResult{ result_value: None, service_exception: Some(*err) };
@@ -716,7 +719,9 @@ impl TKVServerProcessFunctions {
 
 impl <H: KVServerSyncHandler> TProcessor for KVServerSyncProcessor<H> {
   fn process(&self, i_prot: &mut TInputProtocol, o_prot: &mut TOutputProtocol) -> thrift::Result<()> {
-    let message_ident = i_prot.read_message_begin()?;
+    println!("In server sync process");
+    let message_ident = i_prot.read_message_begin().unwrap();
+    println!("Got {:?}", message_ident.name );
     let res = match &*message_ident.name {
       "set_key" => {
         self.process_set_key(message_ident.sequence_number, i_prot, o_prot)
@@ -1258,4 +1263,3 @@ impl DelKeyResult {
     Ok(())
   }
 }
-
