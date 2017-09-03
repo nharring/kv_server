@@ -4,13 +4,11 @@ extern crate try_from;
 
 mod kv_server;
 use std::collections::HashMap;
-use std::convert::{From, Into};
+use std::convert::{From};
 use std::default::Default;
 
 
 use thrift::server::TServer;
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::RwLock;
 use std::result::Result;
 use std::ops::{DerefMut, Deref};
@@ -78,7 +76,7 @@ impl Default for KVServer {
 }
 
 impl KVServerSyncHandler for KVServer {
-    fn handle_set_key(&self, kv: kv_server::KVObject) -> Result<bool, thrift::Error> {
+    fn handle_set_key(&self, kv: KVObject) -> Result<bool, thrift::Error> {
         let key = kv.key.unwrap();
         let value = kv.value.unwrap();
         println!("Storing value: {}  into key: {}", value, key);
@@ -116,6 +114,12 @@ impl KVServerSyncHandler for KVServer {
 
 
     fn handle_del_key(&self, key: String) -> Result<(), thrift::Error> {
-         unimplemented!();
+        let mut store = self.store.write().unwrap();
+        {
+            println!("Removing key: {}", key);
+            let w_store = store.deref_mut();
+            w_store.store.remove(&key);
+        }
+        Ok(())
     }
 }
